@@ -1,0 +1,637 @@
+{
+  "name": "CV-PARSER FLOW1",
+  "nodes": [
+    {
+      "parameters": {
+        "formTitle": "CV Submission",
+        "formDescription": "Upload your CV here",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "cv_file",
+              "fieldType": "file"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.5,
+      "position": [
+        -432,
+        -208
+      ],
+      "id": "8eec7b22-4b57-48d2-a6a7-36c8cfa9644a",
+      "name": "On form submission",
+      "webhookId": "9eafe136-91e7-4417-90f4-3ad37b3a6055"
+    },
+    {
+      "parameters": {
+        "operation": "pdf",
+        "binaryPropertyName": "cv_file",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1.1,
+      "position": [
+        -272,
+        -208
+      ],
+      "id": "7a98c270-275b-4276-bd99-8f66b27c151b",
+      "name": "Extract from File"
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-4o-mini",
+          "mode": "list",
+          "cachedResultName": "GPT-4O-MINI"
+        },
+        "responses": {
+          "values": [
+            {
+              "content": "=You are a CV parser. Extract the following fields from the CV and return ONLY a JSON object:\n\n{\n  \"name\": \"\",\n  \"email\": \"\",\n  \"phone\": \"\",\n  \"skills\": \"\",\n  \"experience_years\": \"\",\n  \"education\": \"\",\n  \"score\": 0\n}\n\nScore 1-10 based on skills and experience.\n\nCV Text:\n{{ $('Extract from File').item.json.text }}"
+            },
+            {}
+          ]
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 2.1,
+      "position": [
+        -320,
+        16
+      ],
+      "id": "2e119b75-6992-4005-bd5a-c49d564fad76",
+      "name": "Message a model",
+      "credentials": {
+        "openAiApi": {
+          "id": "lKsLciQmvRvl3nFa",
+          "name": "OpenAI account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const inputJson = $input.first().json;\n\n// Navigate the exact n8n OpenAI response structure\nlet aiResponse = '';\n\ntry {\n  // Try the most common n8n OpenAI path\n  aiResponse = inputJson.output[0].content[0].text;\n} catch(e1) {\n  try {\n    aiResponse = inputJson.content[0].text;\n  } catch(e2) {\n    try {\n      aiResponse = inputJson.text;\n    } catch(e3) {\n      aiResponse = JSON.stringify(inputJson);\n    }\n  }\n}\n\n// Log what we got so we can debug\nconsole.log('AI Response:', aiResponse.substring(0, 200));\n\n// Find and parse JSON from the response\nlet parsed;\ntry {\n  const match = aiResponse.match(/\\{[\\s\\S]*\\}/);\n  if (!match) throw new Error('No JSON found');\n  parsed = JSON.parse(match[0]);\n} catch(e) {\n  return [{ json: {\n    debug_raw: aiResponse.substring(0, 300),\n    name: \"Parse Error\",\n    email: \"\",\n    phone: \"\",\n    skills: \"\",\n    experience_years: \"\",\n    education: \"\",\n    score: 0\n  }}];\n}\n\nparsed.score = Number(parsed.score) || 0;\n\nreturn [{ json: parsed }];\n\n\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -80,
+        -208
+      ],
+      "id": "b33de885-b82c-41c9-b749-18b17364a4fd",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "bec5fd48-c73a-4986-90ba-b6739bbee623",
+              "leftValue": "={{ $json.score }}",
+              "rightValue": 7,
+              "operator": {
+                "type": "number",
+                "operation": "gte"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        64,
+        -208
+      ],
+      "id": "2520b603-0bd0-4971-b25e-0c576689bfd8",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1IXZIWPtNcJL2KL2cSVZuUTL_AiQjihM69ncAuPocXNA",
+          "mode": "list",
+          "cachedResultName": "CV Candidates",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1IXZIWPtNcJL2KL2cSVZuUTL_AiQjihM69ncAuPocXNA/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1IXZIWPtNcJL2KL2cSVZuUTL_AiQjihM69ncAuPocXNA/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Name": "={{ $json.name }}",
+            "Email": "={{ $json.email }}",
+            "Phone": "={{ $json.phone }}",
+            "Skills": "={{ $json.skills }}",
+            "Experience": "={{ $json.experience_years }}",
+            "Score ": "={{ $json.score }}",
+            "Status": "Shortlisted"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Name",
+              "displayName": "Name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Email",
+              "displayName": "Email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Phone",
+              "displayName": "Phone",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Skills",
+              "displayName": "Skills",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Experience",
+              "displayName": "Experience",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Score ",
+              "displayName": "Score ",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Status",
+              "displayName": "Status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        272,
+        -224
+      ],
+      "id": "11ad8373-638f-41ca-91fa-fc4bcb9adf9b",
+      "name": "Append row in sheet",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "M5GeqJMNdPUlhwAi",
+          "name": "Google Sheets account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $json.Email }}",
+        "subject": "Interview Invitation — We'd Love to Meet You!",
+        "message": "=<p>Dear {{ $json.name }},</p>  <p>Thank you for applying. After reviewing your CV,  we are pleased to inform you that you have been  <strong>shortlisted</strong> for an interview.</p>  <p><strong>Your Profile Summary:</strong></p> <ul>   <li>Skills: {{ $json.skills }}</li>   <li>Experience: {{ $json.experience_years }} years</li>   <li>Score: {{ $json.score }}/10</li> </ul>  <p>Please reply to this email with your available  dates and times for the interview.</p>  <p>We look forward to speaking with you!</p>  <p>Best regards,<br> HR Team</p>",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        464,
+        -224
+      ],
+      "id": "70fd06d0-1735-4e29-bf79-f7a8403d326d",
+      "name": "Send a message",
+      "webhookId": "a45636d5-d7ae-4bdc-a401-4ddc79a5376a",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "QyOHsRzxTHmUA4yV",
+          "name": "Gmail OAuth2 API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $('Code in JavaScript').item.json.email }}",
+        "subject": "Thank you for your application",
+        "message": "=Dear {{ $('Code in JavaScript').item.json.name }},  Thank you for applying and taking the time  to submit your CV.  After careful review, we regret to inform  you that we will not be moving forward  with your application at this time.  We appreciate your interest and wish you  the best in your job search.  Best regards, HR Team",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        368,
+        32
+      ],
+      "id": "4156030f-72d2-4959-a9fd-913b9460c8c5",
+      "name": "Send a message1",
+      "webhookId": "566f4728-e2c6-463c-ac51-c0eb3dc95789",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "QyOHsRzxTHmUA4yV",
+          "name": "Gmail OAuth2 API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1IXZIWPtNcJL2KL2cSVZuUTL_AiQjihM69ncAuPocXNA",
+          "mode": "list",
+          "cachedResultName": "CV Candidates",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1IXZIWPtNcJL2KL2cSVZuUTL_AiQjihM69ncAuPocXNA/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1IXZIWPtNcJL2KL2cSVZuUTL_AiQjihM69ncAuPocXNA/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Name": "={{ $('Code in JavaScript').item.json.name }}",
+            "Email": "={{ $('Code in JavaScript').item.json.email }}",
+            "Phone": "={{ $('Code in JavaScript').item.json.phone }}",
+            "Skills": "={{ $('Code in JavaScript').item.json.skills }}",
+            "Experience": "={{ $('Code in JavaScript').item.json.experience_years }}",
+            "Score ": "={{ $('Code in JavaScript').item.json.score }}",
+            "Status": "Rejected"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Name",
+              "displayName": "Name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Email",
+              "displayName": "Email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Phone",
+              "displayName": "Phone",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Skills",
+              "displayName": "Skills",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Experience",
+              "displayName": "Experience",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Score ",
+              "displayName": "Score ",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Status",
+              "displayName": "Status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        176,
+        32
+      ],
+      "id": "64675989-609b-438c-b2c5-00f8b52161f9",
+      "name": "Append row in sheet1",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "M5GeqJMNdPUlhwAi",
+          "name": "Google Sheets account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "1IXZIWPtNcJL2KL2cSVZuUTL_AiQjihM69ncAuPocXNA",
+          "mode": "list",
+          "cachedResultName": "CV Candidates",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1IXZIWPtNcJL2KL2cSVZuUTL_AiQjihM69ncAuPocXNA/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1IXZIWPtNcJL2KL2cSVZuUTL_AiQjihM69ncAuPocXNA/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Email": "={{ $('Code in JavaScript').item.json.email }}",
+            "Name": "={{ $('Code in JavaScript').item.json.name }}",
+            "Phone": "={{ $('Code in JavaScript').item.json.phone }}",
+            "Skills": "={{ $('Code in JavaScript').item.json.skills }}",
+            "Experience": "={{ $('Code in JavaScript').item.json.experience_years }}",
+            "Score ": "={{ $('Code in JavaScript').item.json.score }}",
+            "Status": "Invited"
+          },
+          "matchingColumns": [
+            "Email"
+          ],
+          "schema": [
+            {
+              "id": "Name",
+              "displayName": "Name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Email",
+              "displayName": "Email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Phone",
+              "displayName": "Phone",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Skills",
+              "displayName": "Skills",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Experience",
+              "displayName": "Experience",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Score ",
+              "displayName": "Score ",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Status",
+              "displayName": "Status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "row_number",
+              "displayName": "row_number",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "readOnly": true,
+              "removed": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        640,
+        -32
+      ],
+      "id": "0ab38b66-e565-4b36-a80d-11c72e0507f2",
+      "name": "Update row in sheet",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "M5GeqJMNdPUlhwAi",
+          "name": "Google Sheets account 2"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "On form submission": {
+      "main": [
+        [
+          {
+            "node": "Extract from File",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract from File": {
+      "main": [
+        [
+          {
+            "node": "Message a model",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Message a model": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Append row in sheet",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Append row in sheet1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Append row in sheet": {
+      "main": [
+        [
+          {
+            "node": "Send a message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send a message": {
+      "main": [
+        [
+          {
+            "node": "Update row in sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Append row in sheet1": {
+      "main": [
+        [
+          {
+            "node": "Send a message1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "31b068cb-fd05-436c-95a9-d13bdd4637e4",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "a876c6c93497f08670ba5ec5c5deb7cde31508199a5fcee883c297e3de8c90e2"
+  },
+  "id": "1mxNojkGf5YUlo06",
+  "tags": []
+}
